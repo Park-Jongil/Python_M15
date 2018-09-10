@@ -7,11 +7,6 @@ from sqlite3 import Error
 from time import sleep
 
 def create_connection(db_file):
-    """ create a database connection to the SQLite database
-        specified by the db_file
-    :param db_file: database file
-    :return: Connection object or None
-    """
     try:
         conn = sqlite3.connect(db_file)
         return conn
@@ -21,41 +16,49 @@ def create_connection(db_file):
     return None
 
 def select_status_by_key(conn, key):
-    """
-    Query tasks by priority
-    :param conn: the Connection object
-    :param priority:
-    :return:
-    """
-    cur = conn.cursor()
-    cur.execute("SELECT seq,status FROM CameraList WHERE seq=?", (key,))
-    row = cur.fetchone()
-    if (row==None) : return None
-    return row[1]
+    try :
+        cur = conn.cursor()
+        cur.execute("SELECT seq,status FROM CameraList WHERE seq=?", (key,))
+        row = cur.fetchone()
+        if (row==None) : return None
+        return row[1]
+    except :
+        return None
 
 def select_name_by_key(conn, key):
-    """
-    Query tasks by priority
-    :param conn: the Connection object
-    :param priority:
-    :return:
-    """
-    cur = conn.cursor()
-    cur.execute("SELECT seq,name FROM CameraList WHERE seq=?", (key,))
-    row = cur.fetchone()
-    return row[1]
+    try :
+        cur = conn.cursor()
+        cur.execute("SELECT seq,name FROM CameraList WHERE seq=?", (key,))
+        row = cur.fetchone()
+        return row[1]
+    except :
+        return None
 
+def select_ipaddr_by_key(conn, key):
+    try :
+        cur = conn.cursor()
+        cur.execute("SELECT seq,ip_addr FROM CameraList WHERE seq=?", (key,))
+        row = cur.fetchone()
+        return row[1]
+    except :
+        return None
 
 def update_status_by_key(conn, key , status):
-    cur = conn.cursor()
-    cur.execute("UPDATE CameraList SET status=? WHERE seq=?", (status, key))        
-    conn.commit()
+    try :
+        cur = conn.cursor()
+        cur.execute("UPDATE CameraList SET status=? WHERE seq=?", (status, key))        
+        conn.commit()
+    except :
+        return
 
 def Insert_StatusChange(conn, ChkTime , key , name , prev , curr):
-    cur = conn.cursor()
-    sql_stmt = "insert into StatusChange(CheckTime,CameraID,CameraName,PrevStatus,CurrStatus) values(?,?,?,?,?)"
-    cur.execute( sql_stmt,(ChkTime,key,name,prev,curr))
-    conn.commit()
+    try :
+        cur = conn.cursor()
+        sql_stmt = "insert into StatusChange(CheckTime,CameraID,CameraName,PrevStatus,CurrStatus) values(?,?,?,?,?)"
+        cur.execute( sql_stmt,(ChkTime,key,name,prev,curr))
+        conn.commit()
+    except :
+        return
 
 def TcpSocket_AlarmNotify_Status(ip_Addr,port,CamKey,CamStatus):
     try :
@@ -93,20 +96,20 @@ def main():
                     HighStreamConnection = item.text  
                 if (item.tag == 'LowStreamConnection') :      
                     LowStreamConnection = item.text  
-#            print("UniqueKey = " + UniqueKey)
-#            print("HighStreamConnection  = " + HighStreamConnection)
-#            print("LowStreamConnection   = " + LowStreamConnection)
-            if (HighStreamConnection=='1') and (LowStreamConnection=='1')  :
+#            if (HighStreamConnection=='1') and (LowStreamConnection=='1')  :
+            if (HighStreamConnection=='1') :
                 isAlive = isAlive + 1   
                 iCurrStatus = 1
             iPrevStatus = select_status_by_key( conn , int(UniqueKey) )
             if (iPrevStatus != iCurrStatus) and (iPrevStatus!=None):
-                print(" 상태값 변이가 발생함 Key = " + UniqueKey )
+                ipaddr = select_ipaddr_by_key( conn , int(UniqueKey) )
+                CameraName = select_name_by_key( conn , int(UniqueKey) )
+                print(" 상태값 변이가 발생함 Key = " + UniqueKey + " [" + CameraName + "] " )
                 print("   Prev = " + str(iPrevStatus) ) 
                 print("   Current = " + str(iCurrStatus) )                
-                update_status_by_key( conn , int(UniqueKey) , iCurrStatus )
+                if (ipaddr.startswith("10.")) == True : print("   4 Campus = " + ipaddr )    
 
-                CameraName = select_name_by_key( conn , int(UniqueKey) )
+                update_status_by_key( conn , int(UniqueKey) , iCurrStatus )
                 CheckTime = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
                 Insert_StatusChange(conn,CheckTime,int(UniqueKey),CameraName,iPrevStatus,iCurrStatus)
 
@@ -122,5 +125,7 @@ if __name__ == '__main__':
     while True:
         main()
         sleep(5)
+    
+    
     
     
