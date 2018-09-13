@@ -62,10 +62,11 @@ def Insert_StatusChange(conn, ChkTime , key , name , prev , curr):
 
 def TcpSocket_AlarmNotify_Status(ip_Addr,port,CamKey,CamStatus):
     try :
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.connect(( ip_Addr , port ))
-        SendMsg = CamKey + "," + CamStatus
-        sock.send( SendMsg )
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.connect((ip_Addr, port))
+            line = CamKey + "," + CamStatus
+            s.send(line)
+            s.close()        
     except :
         print(" TCP/IP 통신에러 ")
 
@@ -73,8 +74,8 @@ def TcpSocket_AlarmNotify_Status(ip_Addr,port,CamKey,CamStatus):
 def main():
     database = "NaizDB.db"
     naiz_url = 'http://172.18.200.36:80/event/status.cgi?id=admin&password=spdlwm1234&key=all&method=get'
-    Notify_Addr = "127.0.0.1"
-    Notify_Port = 9990
+    Notify_Addr = socket.gethostname()
+    Notify_Port = 12222
 
     conn = create_connection(database)
 
@@ -125,7 +126,5 @@ if __name__ == '__main__':
     while True:
         main()
         sleep(5)
-    
-    
     
     
