@@ -23,6 +23,17 @@ def select_name_by_key(conn, key):
     except :
         return None
 
+def select_ipaddr_by_key(conn, key):
+    try :
+        cur = conn.cursor()
+        cur.execute("select seq,name,ip_addr from CameraList where seq=?",(int(key),) )
+        row = cur.fetchone()
+        if (row==None) : return None
+        return row[2]
+    except :
+        return None
+
+
 def main():
     database = "NaizDB.db"
 
@@ -61,7 +72,8 @@ def main():
                     print("RTSP_URL #1 = " + RTSP_URL1)
                     print("RTSP_URL #2 = " + RTSP_URL2)
                 else :
-                    if (findname != Name) :
+                    ipaddr = select_ipaddr_by_key( conn , UniqueKey )
+                    if (findname != Name) or (ipaddr != IP_Addr) :
                         print("UniqueKey = " + UniqueKey)
                         sql_stmt = "update CameraList set name=?,ip_addr=?,rtsp_url1=?,rtsp_url2=? where seq = ?"
                         cur.execute( sql_stmt,(Name,IP_Addr,RTSP_URL1,RTSP_URL2,int(UniqueKey)))
@@ -76,4 +88,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+    
     
