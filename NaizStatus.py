@@ -12,8 +12,21 @@ def create_connection(db_file):
         return conn
     except Error as e:
         print(e)
- 
     return None
+
+def CheckTable_Exist(conn,tblname):
+    try :
+        cur = conn.cursor()
+        sql_stmt = "Select count(*) from sqlite_master Where Name = '" + tblname + "'"
+        cur.execute(sql_stmt)
+        row = cur.fetchone()
+        if (row[0]==0) :
+            cur = conn.cursor()
+            sql_stmt = "CREATE TABLE " + tblname + " ( `CheckTime` TEXT NOT NULL, `CameraID` INTEGER, `CameraName` TEXT, `PrevStatus` INTEGER, `CurrStatus` INTEGER )"
+            cur.execute(sql_stmt)        
+            conn.commit()
+    except :
+        return None
 
 def select_status_by_key(conn, key):
     try :
@@ -51,10 +64,10 @@ def update_status_by_key(conn, key , status):
     except :
         return
 
-def Insert_StatusChange(conn, ChkTime , key , name , prev , curr):
+def Insert_StatusChange(conn, TableName, ChkTime , key , name , prev , curr):
     try :
         cur = conn.cursor()
-        sql_stmt = "insert into StatusChange(CheckTime,CameraID,CameraName,PrevStatus,CurrStatus) values(?,?,?,?,?)"
+        sql_stmt = "insert into " + TableName + "(CheckTime,CameraID,CameraName,PrevStatus,CurrStatus) values(?,?,?,?,?)"
         cur.execute( sql_stmt,(ChkTime,key,name,prev,curr))
         conn.commit()
     except :
@@ -72,12 +85,14 @@ def TcpSocket_AlarmNotify_Status(ip_Addr,port,CamKey,CamStatus):
 
 
 def main():
-    database = "NaizDB.db"
-    naiz_url = 'http://172.18.200.36:80/event/status.cgi?id=admin&password=spdlwm1234&key=all&method=get'
+    database  = "NaizDB.db"
+    tablename = "StatusChange" + datetime.today().strftime("%Y%m%d")
+    naiz_url  = 'http://10.236.1.100:80/event/status.cgi?id=admin&password=spdlwm1234&key=all&method=get'
     Notify_Addr = socket.gethostname()
     Notify_Port = 12222
 
     conn = create_connection(database)
+    CheckTable_Exist( conn , tablename )
 
     file = urllib.request.urlopen( naiz_url ).read().decode('euc-kr')
     root = ET.fromstring(file)
@@ -105,14 +120,14 @@ def main():
             if (iPrevStatus != iCurrStatus) and (iPrevStatus!=None):
                 ipaddr = select_ipaddr_by_key( conn , int(UniqueKey) )
                 CameraName = select_name_by_key( conn , int(UniqueKey) )
-                print(" 상태값 변이가 발생함 Key = " + UniqueKey + " [" + CameraName + "] " )
-                print("   Prev = " + str(iPrevStatus) ) 
-                print("   Current = " + str(iCurrStatus) )                
-                if (ipaddr.startswith("10.")) == True : print("   4 Campus = " + ipaddr )    
+                if (iPrevStatus==0 and iCurrStatus==1) : szStatus = "활성"
+                else : szStatus = "단절"
 
+                print(" 상태값 변이가 발생함 Key = " + UniqueKey + "[" + szStatus + "] [" + CameraName + "] " )
+#                if (ipaddr.startswith("10.")) == True : print("   4 Campus = " + ipaddr )    
                 update_status_by_key( conn , int(UniqueKey) , iCurrStatus )
                 CheckTime = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
-                Insert_StatusChange(conn,CheckTime,int(UniqueKey),CameraName,iPrevStatus,iCurrStatus)
+                Insert_StatusChange(conn,tablename,CheckTime,int(UniqueKey),CameraName,iPrevStatus,iCurrStatus)
 
 #                if (Notify_Addr != "") :
 #                    TcpSocket_AlarmNotify_Status(Notify_Addr,Notify_Port,UniqueKey,iCurrStatus)
