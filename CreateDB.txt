@@ -1,0 +1,52 @@
+CREATE TABLE "CameraList" ( `seq` INTEGER NOT NULL, `name` TEXT, `ip_addr` TEXT, `rtsp_url1` TEXT, `rtsp_url2` TEXT, `status` INTEGER, `cntError` INTEGER, `vms_ip` TEXT, `vms_ch` TEXT, `Last_Alive` TEXT, `Last_Dead` TEXT, `CheckUpdate` INTEGER )
+
+CREATE TABLE "CameraUpdate" ( `CheckTime` TEXT NOT NULL, `seq` INTEGER, `name` TEXT, `prev_ip_addr` TEXT, `prev_rtsp_url1` TEXT, `prev_rtsp_url2` TEXT, `curr_ip_addr` TEXT, `curr_rtsp_url1` TEXT, `curr_rtsp_url2` TEXT, `append` TEXT, `prevName` TEXT, `update_date` TEXT )
+
+CREATE TABLE `StatusChange` ( `CheckTime` TEXT NOT NULL, `CameraID` INTEGER, `CameraName` TEXT, `PrevStatus` INTEGER, `CurrStatus` INTEGER )
+
+CREATE TABLE "tbl_InnoVMS" ( `id` INTEGER, `campus` INTEGER, `building` INTEGER, `device_name` TEXT, `device_ip` TEXT, `vms_id` INTEGER, `grp_serial` INTEGER, `dev_serial` INTEGER, `dch_ch` INTEGER, `vms_ip` TEXT, `vms_ch` TEXT, `geo_pos` TEXT, `layer` TEXT, `floor` INTEGER )
+
+
+select CameraID,count(CameraID),CameraName,ip_addr from StatusChange as A,CameraList as B 
+where A.CameraName==B.name AND 
+      substr(ip_addr,1,3)=="10."
+group by CameraID order by count(CameraID) desc
+
+// 신규카메라 리스트에 현재까지 발생된 에러카운터를 업데이트 하는 쿼리
+update CameraList set cntError = 
+(
+  Select count(CameraID) from StatusChange where StatusChange.CameraName==CameraList.name group by CameraID
+)
+
+// 신규리스트 기준 뷰릭스에서 없는 카메라이름 찾는쿼리.(누락된 항목)
+Select * from CameraList where name not in
+( Select device_name from tbl_InnoVMS )
+order by name
+
+// 뷰릭스기준으로 신규리스트에 없는 항목(잘못된 입력)
+Select * from tbl_InnoVMS where device_name not in
+( Select name from CameraList )
+order by device_name
+
+// 카메라리스트(신규)에서 NVR 아이피와 채널을 현재 DB 에 업데이트 하는 쿼리
+update tbl_InnoVMS set vms_ip = 
+( select vms_ip from CameraList where name = tbl_InnoVMS.device_name )
+
+// 기존 누비콤의 저장되어 있는 리스트에서 해당건물 및 층에 대한 정보를 업데이트 하는 쿼리
+update tbl_InnoVMS set floor = ( select floor from tbl_VMS_List where device_name = tbl_InnoVMS.device_name )
+
+// 현재의 DB 와 신규리스트의 NVR 아이피 및 채널이 서로 상이한리스트를 찾는쿼리(엉뚱한 카메라와 링크된 연결) - 잘못입력
+Select A.seq,trim(A.name),A.vms_ip,A.vms_ch,B.vms_ip,B.vms_ch
+from CameraList as A, tbl_InnoVMS as B 
+where B.device_name = A.name and
+      not (A.vms_ip=B.vms_ip AND A.vms_ch=B.vms_ch)
+
+// 상태값 변이 테이블로부터 기간을 지정하여 에러가 발생한 횟수를 카운팅하는 쿼리
+update CameraList set cntError = 
+(
+  Select count(CameraID) from StatusChange 
+  where StatusChange.CameraName==CameraList.name 
+        and "2018/09/15" < StatusChange.CheckTime 
+		and StatusChange.CheckTime < "2018/09/18"
+  group by CameraID
+)
