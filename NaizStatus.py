@@ -58,9 +58,15 @@ def select_ipaddr_by_key(conn, key):
 
 def update_status_by_key(conn, key , status):
     try :
-        cur = conn.cursor()
-        cur.execute("UPDATE CameraList SET status=? WHERE seq=?", (status, key))        
-        conn.commit()
+        CheckTime = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
+        if (status == 0) :
+            cur = conn.cursor()
+            cur.execute("UPDATE CameraList SET status=? , Last_Dead=? WHERE seq=?", (status,CheckTime, key))        
+            conn.commit()
+        else :
+            cur = conn.cursor()
+            cur.execute("UPDATE CameraList SET status=? , Last_Alive=? WHERE seq=?", (status,CheckTime, key))        
+            conn.commit()
     except :
         return
 
@@ -117,13 +123,15 @@ def main():
                 isAlive = isAlive + 1   
                 iCurrStatus = 1
             iPrevStatus = select_status_by_key( conn , int(UniqueKey) )
-            if (iPrevStatus != iCurrStatus) and (iPrevStatus!=None):
+            if (iPrevStatus != iCurrStatus) :
                 ipaddr = select_ipaddr_by_key( conn , int(UniqueKey) )
                 CameraName = select_name_by_key( conn , int(UniqueKey) )
                 if (iPrevStatus==0 and iCurrStatus==1) : szStatus = "활성"
                 else : szStatus = "단절"
-
-                print(" 상태값 변이가 발생함 Key = " + UniqueKey + "[" + szStatus + "] [" + CameraName + "] " )
+                try :
+                    print(" 상태값 변이 = " + UniqueKey + "[" + szStatus + "] [" + CameraName + "] " )
+                except :
+                    print (" Error Invoke ")
 #                if (ipaddr.startswith("10.")) == True : print("   4 Campus = " + ipaddr )    
                 update_status_by_key( conn , int(UniqueKey) , iCurrStatus )
                 CheckTime = datetime.today().strftime("%Y/%m/%d %H:%M:%S")
@@ -141,5 +149,5 @@ if __name__ == '__main__':
     while True:
         main()
         sleep(5)
-    
+        
     
